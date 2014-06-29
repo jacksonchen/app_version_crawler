@@ -7,7 +7,6 @@ require 'nokogiri'
 require 'open-uri'
 require 'net/http'
 require_relative 'app'
-require_relative 'version'
 
 class Scraping
   @@usage = "Usage: #{$PROGRAM_NAME} apk_name"
@@ -86,8 +85,7 @@ class Scraping
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
     version.download_link = page.css('div.download-wrap a')[0]['href']
     appname = app.name.to_s + '-' + version.version.to_s + '.apk'
-    puts version.download_link
-    #system("wget #{version.download_link} -O apps/#{appname}")
+    system("wget '#{version.download_link}' -O /home/user/drawer/apps/#{appname}")
   end
 
   def start_main(apk_name)
