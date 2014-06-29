@@ -51,7 +51,7 @@ class Scraping
   end
 
   def browse_query(app)
-    results = Nokogiri::HTML(open("evernotesearch.html"))
+    results = Nokogiri::HTML(open("search.html"))
     linkArray = results.css('a.gs-title')
     linkArray.each do |element|
       if element['href'] != nil
@@ -59,7 +59,7 @@ class Scraping
         searchApp =  Nokogiri::HTML(open(element['href']))
         title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"")
         if app.title == title
-          puts "An instance of #{app.title} found"
+          puts "Instances of #{app.title} found"
           latestVersion = searchApp.css('ul.latest-version li a')
           puts "===== Fetching #{latestVersion[0]['href']} ====="
           extract_DrawerFeatures(latestVersion[0]['href'], app)
@@ -81,9 +81,13 @@ class Scraping
     version.creator = page.css('a.devlink').text.strip
     version.update_date = page.css('div#app-details ul li')[7].text.strip
     version.description = page.css('div.tab-contents').children[3..-1].text.strip
-    version.size = page.css('div#app-details ul li')[4].text.strip
-    version.version = page.css('div#app-details ul li')[6].text.strip
+    version.size = page.css('div#app-details ul li')[3].text.strip
+    version.version = page.css('div#app-details ul li')[5].text.strip
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
+    version.download_link = page.css('div.download-wrap a')[0]['href']
+    appname = app.name.to_s + '-' + version.version.to_s + '.apk'
+    puts version.download_link
+    #system("wget #{version.download_link} -O apps/#{appname}")
   end
 
   def start_main(apk_name)
