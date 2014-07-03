@@ -11,7 +11,7 @@ class App < JSONable
   
 end
 
-class Version
+class Version < JSONable
   attr_reader :name
   attr_accessor :title, :creator, :update_date,
   :description, :size, :version,

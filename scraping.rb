@@ -38,21 +38,19 @@ class Scraping
     return app
   end
 
-  def browse_drawer(app)
+  def download_drawer(app)
   	android_drawer_url = "http://androiddrawer.com/search-results/?q=" + app.title
-  	puts "Fetching #{android_drawer_url}"
+  	puts "Downloading #{android_drawer_url}"
 
-    #Add code to load AJAX here
-
-    results = Nokogiri::HTML(open(android_drawer_url))
-    link = results.css('a.gs-title')
-    puts results
+    system("phantomjs load_ajax.js '#{android_drawer_url}' search.html")
+    browse_query(app)
   end
 
   def browse_query(app)
     results = Nokogiri::HTML(open("search.html"))
     linkArray = results.css('a.gs-title')
     linkArray.each do |element|
+    system("mkdir apps/#{app.title}")
       if element['href'] != nil
         puts "===== Fetching #{element['href']} ====="
         searchApp =  Nokogiri::HTML(open(element['href']))
@@ -84,15 +82,24 @@ class Scraping
     version.version = page.css('div#app-details ul li')[5].text.strip
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
     version.download_link = page.css('div.download-wrap a')[0]['href']
-    appname = app.name.to_s + '-' + version.version.to_s + '.apk'
-    system("wget '#{version.download_link}' -O /home/user/drawer/apps/#{appname}")
+    filename = app.name.to_s + '-' + version.version.to_s
+    appname = filename + '.apk'
+    htmlname = filename + '.html'
+    jsondirectory = filename + '.json'
+    #system("wget '#{version.download_link}' -O /home/user/drawer/apps/#{appname}")
+    #system("wget '#{url}' -O /home/user/drawer/apps/#{htmlname}")
+    system("wget '#{version.download_link}' -O apps/#{app.title}/#{appname}")
+    system("wget '#{url}' -O apps/#{app.title}/#{htmlname}")
+    #system("app")
+    File.open("apps/#{app.title}/#{jsondirectory}", 'w') do |f|
+      f.write(version.to_json)
+    end
   end
 
   def start_main(apk_name)
     page = download_file(apk_name)
     app = extract_features(apk_name, page)
-    #browse_drawer(app)
-    browse_query(app)
+    download_drawer(app)
   end
 
   public
