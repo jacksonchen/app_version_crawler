@@ -6,10 +6,11 @@ require 'date'
 require 'nokogiri'
 require 'open-uri'
 require 'net/http'
+require 'csv'
 require_relative 'app'
 
 class Scraping
-  @@usage = "Usage: #{$PROGRAM_NAME} apk_name"
+  @@usage = "Usage: #{$PROGRAM_NAME} csv_file_name"
   BASE_URL = 'https://play.google.com'
   APPS_PATH = '/store/apps'
   QUERY_STRING = '/details?id='
@@ -96,10 +97,12 @@ class Scraping
     end
   end
 
-  def start_main(apk_name)
-    page = download_file(apk_name)
-    app = extract_features(apk_name, page)
-    download_drawer(app)
+  def start_main(packagesArray)
+    for apk_name in packagesArray
+      page = download_file(apk_name)
+      app = extract_features(apk_name, page)
+      download_drawer(app)
+    end
   end
 
   public
@@ -123,10 +126,19 @@ class Scraping
       exit
     end
     if(argv[0].nil?)
-      puts "Error: apk name is not specified."
+      puts "Error: csv file name is not specified."
       abort(@@usage)
     end
-    start_main(argv[0])
+
+    csv_text = File.read(argv[0])
+    packagesArray = Array.new()
+    CSV.parse(csv_text) do |row|
+      packagesArray.push(row[0])
+    end
+    packagesArray.shift
+    puts packagesArray
+
+    start_main(packagesArray)
   end
 end
 
