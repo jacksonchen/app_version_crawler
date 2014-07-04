@@ -3,10 +3,10 @@ A program using Ruby to scrape data and crawl Android Drawer using [Nokogiri](ht
 
 ##Usage
 ```
-scraping.rb apk_name
+scraping.rb csv_file
 ```
 
 ##Example
 ```
-scraping.rb com.evernote
+scraping.rb packages.csv
 ```

@@ -10,7 +10,7 @@ require 'csv'
 require_relative 'app'
 
 class Scraping
-  @@usage = "Usage: #{$PROGRAM_NAME} csv_file_name"
+  @@usage = "Usage: #{$PROGRAM_NAME} csv_file"
   BASE_URL = 'https://play.google.com'
   APPS_PATH = '/store/apps'
   QUERY_STRING = '/details?id='
