@@ -5,7 +5,6 @@ require 'optparse'
 require 'date'
 require 'nokogiri'
 require 'open-uri'
-require 'net/http'
 require 'csv'
 require_relative 'app'
 
@@ -91,7 +90,6 @@ class Scraping
     #system("wget '#{url}' -O /home/user/drawer/apps/#{htmlname}")
     system("wget '#{version.download_link}' -O apps/#{app.title}/#{appname}")
     system("wget '#{url}' -O apps/#{app.title}/#{htmlname}")
-    #system("app")
     File.open("apps/#{app.title}/#{jsondirectory}", 'w') do |f|
       f.write(version.to_json)
     end
@@ -136,7 +134,6 @@ class Scraping
       packagesArray.push(row[0])
     end
     packagesArray.shift
-    puts packagesArray
 
     start_main(packagesArray)
   end
