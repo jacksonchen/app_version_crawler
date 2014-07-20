@@ -67,6 +67,7 @@ if (system.args.length != 3) {
 				// Check in the page if a specific element is now visible
 				return page.evaluate(function() {
 					return $(".gsc-table-result").is(":visible");
+					//CHANGE THE LINE OF CODE ABOVE TO ACCESS PAGES
 				});
 			}, function() {
 				console.log("The search results list should be visible now." +
