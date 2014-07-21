@@ -93,7 +93,7 @@ class Scraping
     File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
       f.write(version.to_json)
     end
-    package_name, version_name = search_aapt((rootdirectory + "/" + appname).to_s)
+    package_name, version_name = search_aapt(title, version.version, appname, htmlname, jsondirectory)
     system("mv apps/#{title} apps/#{package_name}")
     if version.version != version_name
       system("mv apps/#{package_name}/versions/#{version.version} apps/#{package_name}/versions/#{version_name}")
@@ -103,9 +103,6 @@ class Scraping
     newHTML = newFilename + '.html'
     newJSON = newFilename + '.json'
     system("mv apps/#{package_name}/versions/#{version_name}/#{appname} apps/#{package_name}/versions/#{version_name}/#{newAPK}")
-    #puts "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII"
-    #puts "MOVINNNNNNNNNNNNNG", "apps/#{package_name}/versions/#{version_name}/#{newAPK}"
-    #puts "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     system("mv apps/#{package_name}/versions/#{version_name}/#{htmlname} apps/#{package_name}/versions/#{version_name}/#{newHTML}")
     system("mv apps/#{package_name}/versions/#{version_name}/#{jsondirectory} apps/#{package_name}/versions/#{version_name}/#{newJSON}")
     return package_name, version_name
@@ -133,7 +130,7 @@ class Scraping
     File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
       f.write(version.to_json)
     end
-    package_name, version_name = search_aapt((rootdirectory + "/" + appname).to_s)
+    package_name, version_name = search_aapt(packageName, version.version, appname, htmlname, jsondirectory)
     if version.version != version_name
       system("mv apps/#{packageName}/versions/#{version.version} apps/#{packageName}/versions/#{version_name}")
     end
@@ -142,15 +139,17 @@ class Scraping
     newHTML = newFilename + '.html'
     newJSON = newFilename + '.json'
     system("mv apps/#{packageName}/versions/#{version_name}/#{appname} apps/#{packageName}/versions/#{version_name}/#{newAPK}")
-    #puts "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII"
-    #puts "MOVINNNNNNNNNNNNNG", "apps/#{package_name}/versions/#{version_name}/#{newAPK}"
-    #puts "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     system("mv apps/#{packageName}/versions/#{version_name}/#{htmlname} apps/#{packageName}/versions/#{version_name}/#{newHTML}")
     system("mv apps/#{packageName}/versions/#{version_name}/#{jsondirectory} apps/#{packageName}/versions/#{version_name}/#{newJSON}")
   end
 
-  def search_aapt(apk)
-    output = `../../adt-bundle/sdk/build-tools/android-4.4W/aapt dump badging #{apk} | grep package`
+  def search_aapt(appName, version, apkname, htmlname, jsondirectory)
+    output = `../../adt-bundle/sdk/build-tools/android-4.4W/aapt dump badging apps/#{appName}/versions/#{version}/#{apkname} | grep package`
+    if output == ""
+      corrupt_name = version.to_s + "corrupt"
+      system("mv apps/#{appName}/versions/#{version} apps/#{appName}/versions/#{corrupt_name}")
+      return
+    end
     pattern = /package\: name='(?<PackageName>\S+)' versionCode='\d+' versionName='(?<VersionName>\S+)'/
     parts = output.match(pattern)
     return parts['PackageName'], parts['VersionName']
