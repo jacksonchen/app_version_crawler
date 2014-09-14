@@ -15,28 +15,6 @@ class Scraping
   # QUERY_STRING = '/details?id='
 
   private
-  def download_file(apk_name)
-    play_store_url = BASE_URL + APPS_PATH + QUERY_STRING + apk_name
-    puts "Fetching #{play_store_url}"
-    begin
-      page = Nokogiri::HTML(open(play_store_url))
-    rescue OpenURI::HTTPError
-      puts "Error: HTTP error in the given URL: #{play_store_url}."
-      exit
-    rescue OpenURI::HTTPRedirect
-      puts "Error: HTTP redirect error in the given URL: #{play_store_url}."
-      exit
-    end
-  end
-
-  def extract_features(apk_name, page)
-    app = App.new(apk_name)
-    app.title = page.css('div.info-container div.document-title').text.strip
-    title_arr = page.css('div.info-container .document-subtitle')
-    app.creator = title_arr[0].text.strip
-    puts app.to_json
-    return app
-  end
 
   def download_drawer(keyword)
     android_drawer_url = "http://androiddrawer.com/search-results/?q=" + keyword
@@ -173,86 +151,8 @@ class Scraping
     return parts['PackageName'], parts['VersionName']
   end
 
-  def firstextract_DrawerFeatures(url, title)
-    version = Version.new(title)
-    puts "-=-=-=-=-=-=-#{url}-=-=-=-=-=-=-=-=-="
-    page = Nokogiri::HTML(open(url))
-    version.title = page.css('h1.entry-title').text.strip
-    version.creator = page.css('a.devlink').text.strip
-    version.update_date = page.css('div#app-details ul li')[7].text.strip
-    version.description = page.css('div.tab-contents').children[3..-1].text.strip
-    version.size = page.css('div#app-details ul li')[3].text.strip
-    version.version = page.css('div#app-details ul li')[5].text.strip
-    version.what_is_new = page.css('div.changelog-wrap ul').text.strip
-    version.download_link = page.css('div.download-wrap a')[0]['href']
-    version.download_link = version.download_link.gsub(/^\S+\//,"https://drive.google.com/")
-    puts "-=-=-=-=-=-=-#{version.download_link}-=-=-=-=-=-=-=-=-="
-    filename = title.to_s + '-' + version.version.to_s
-    rootdirectory = "apps/#{title}/versions/#{version.version}"
-    appname = filename + '.apk'
-    htmlname = filename + '.html'
-    jsondirectory = filename + '.json'
-    system("mkdir -p #{rootdirectory}")
-    system("wget '#{version.download_link}' -O #{rootdirectory}/#{appname}")
-    system("wget '#{url}' -O #{rootdirectory}/#{htmlname}")
-    File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
-      f.write(version.to_json)
-    end
-    package_name, version_name = search_aapt(title, version.version, appname, htmlname, jsondirectory)
-    system("mv apps/#{title} apps/#{package_name}")
-    if version.version != version_name
-      system("mv apps/#{package_name}/versions/#{version.version} apps/#{package_name}/versions/#{version_name}")
-    end
-    newFilename = package_name.to_s + "-" + version_name.to_s
-    newAPK = newFilename + '.apk'
-    newHTML = newFilename + '.html'
-    newJSON = newFilename + '.json'
-    system("mv apps/#{package_name}/versions/#{version_name}/#{appname} apps/#{package_name}/versions/#{version_name}/#{newAPK}")
-    system("mv apps/#{package_name}/versions/#{version_name}/#{htmlname} apps/#{package_name}/versions/#{version_name}/#{newHTML}")
-    system("mv apps/#{package_name}/versions/#{version_name}/#{jsondirectory} apps/#{package_name}/versions/#{version_name}/#{newJSON}")
-    return package_name, version_name
-  end
-
-  def extract_DrawerFeatures(url, title, packageName)
-    version = Version.new(title)
-    page = Nokogiri::HTML(open(url))
-    version.title = page.css('h1.entry-title').text.strip
-    version.creator = page.css('a.devlink').text.strip
-    version.update_date = page.css('div#app-details ul li')[7].text.strip
-    version.description = page.css('div.tab-contents').children[3..-1].text.strip
-    version.size = page.css('div#app-details ul li')[3].text.strip
-    version.version = page.css('div#app-details ul li')[5].text.strip
-    version.what_is_new = page.css('div.changelog-wrap ul').text.strip
-    version.download_link = page.css('div.download-wrap a')[0]['href']
-    version.download_link = version.download_link.gsub(/^\S+\//,"https://drive.google.com/")
-    filename = title.to_s + '-' + version.version.to_s
-    rootdirectory = "apps/#{packageName}/versions/#{version.version}"
-    appname = filename + '.apk'
-    htmlname = filename + '.html'
-    jsondirectory = filename + '.json'
-    system("mkdir -p #{rootdirectory}")
-    system("wget '#{version.download_link}' -O #{rootdirectory}/#{appname}")
-    system("wget '#{url}' -O #{rootdirectory}/#{htmlname}")
-    File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
-      f.write(version.to_json)
-    end
-    package_name, version_name = search_aapt(packageName, version.version, appname, htmlname, jsondirectory)
-    if version.version != version_name
-      system("mv apps/#{packageName}/versions/#{version.version} apps/#{packageName}/versions/#{version_name}")
-    end
-    newFilename = package_name.to_s + "-" + version_name.to_s
-    newAPK = newFilename + '.apk'
-    newHTML = newFilename + '.html'
-    newJSON = newFilename + '.json'
-    system("mv apps/#{packageName}/versions/#{version_name}/#{appname} apps/#{packageName}/versions/#{version_name}/#{newAPK}")
-    system("mv apps/#{packageName}/versions/#{version_name}/#{htmlname} apps/#{packageName}/versions/#{version_name}/#{newHTML}")
-    system("mv apps/#{packageName}/versions/#{version_name}/#{jsondirectory} apps/#{packageName}/versions/#{version_name}/#{newJSON}")
-  end
-
   def start_main(packagesArray)
     for keyword in packagesArray
-      #page = download_file(keyword)
-      #app = extract_features(keyword, page)
       download_drawer(keyword)
     end
   end
