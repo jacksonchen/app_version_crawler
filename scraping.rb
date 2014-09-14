@@ -54,25 +54,128 @@ class Scraping
       if element['href'] != nil
         puts "===== Fetching #{element['href']} ====="
         searchApp =  Nokogiri::HTML(open(element['href']))
+        url = element['href']
         title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"")
         if appTitle.include?(title) == false
-          latestVersion = searchApp.css('ul.latest-version li a')
-          puts "===== Fetching #{latestVersion[0]['href']} ====="
-          package_name, version_name = firstextract_DrawerFeatures(latestVersion[0]['href'], title)
-          oldVersion = searchApp.css('ul.oldversions li a')
-          oldVersion.each do |version|
-            puts "===== Fetching #{version['href']} ====="
-            extract_DrawerFeatures(version['href'], title, package_name)
+          extract_gen_features(url, title)
+          package_name, version_name = extract_latest_version_features(searchApp, title)
+
+          older_versions = searchApp.css('div.old-version-content-wrap')
+          older_versions.each do |version|
+             extract_older_version_features(version, package_name, title)
           end
           appTitle.push(title)
-          break
         end
       end
     end
   end
 
+  def extract_gen_features(url, title)
+    page = Nokogiri::HTML(open(url))
+    title = title.gsub(/\s+/, "")
+    app = App.new(title)
+    app.title = page.css('h1.entry-title').text.strip
+    app.creator = page.css('a.devlink').text.strip
+    app.description = page.css('div.app-description-wrap')[0].children.text.strip
+    app.domain = page.css('div#crumbs a')[1].text.strip
+    app.category = page.css('div#crumbs a')[2].text.strip
+    rootdirectory = "apps/#{title}/general"
+    system("mkdir -p #{rootdirectory}")
+    filename = title.to_s + "-general"
+    jsondirectory = filename + ".json"
+    htmldirectory = filename + ".html"
+    system("wget '#{url}' -O #{rootdirectory}/#{htmldirectory}")
+    File.open("#{rootdirectory}/#{jsondirectory}", 'w')  do |f|
+      f.write(app.to_json)
+    end
+  end
+
+  def extract_latest_version_features(page, title)
+    title = title.gsub(/\s+/, "")
+    version = Version.new(title)
+    version.size = page.css('div.changelog-wrap div.download-wrap a div.download-size').text.strip
+    version.update_date = page.css('div.changelog-wrap p.latest-updated-date').text.strip.gsub(/^\S+\s/,"")
+    version.version = page.css('div.app-contents-wrap h3.section-title')[0].text.strip.gsub(/^\S+\s\S+\s/,"")
+    version.what_is_new = page.css('div.recent-change').text.strip
+    version.download_link = page.css('div.download-wrap a')[0]['href']
+    rootdirectory = "apps/#{title}/versions/#{version.version}"
+    filename = title.to_s + '-' + version.version.to_s
+    appname = filename + '.apk'
+    jsondirectory = filename + '.json'
+    system("mkdir -p #{rootdirectory}")
+    system("wget '#{version.download_link}' -O #{rootdirectory}/#{appname}")
+    File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
+      f.write(version.to_json)
+    end
+    package_name, version_name = search_aapt(title, version.version, appname, jsondirectory)
+    system("mv apps/#{title} apps/#{package_name}")
+    if version.version != version_name
+      system("mv apps/#{package_name}/versions/#{version.version} apps/#{package_name}/versions/#{version_name}")
+    end
+    newversionFilename = package_name.to_s + "-" + version_name.to_s
+    newgenFilename = package_name.to_s + "-general"
+    newAPK = newversionFilename + '.apk'
+    newgenJSON = newgenFilename + '.json'
+    newgenHTML = newgenFilename + '.html'
+    newversionJSON = newversionFilename + '.json'
+
+    oldgenFilename = title.to_s + "-general"
+    oldgenJSON = oldgenFilename + '.json'
+    oldgenHTML = oldgenFilename + '.html'
+
+    #Renames version files with apk names
+    system("mv apps/#{package_name}/versions/#{version_name}/#{appname} apps/#{package_name}/versions/#{version_name}/#{newAPK}")
+    system("mv apps/#{package_name}/versions/#{version_name}/#{jsondirectory} apps/#{package_name}/versions/#{version_name}/#{newversionJSON}")
+    #Renames general files with apk names
+    system("mv apps/#{package_name}/general/#{oldgenJSON} apps/#{package_name}/general/#{newgenJSON}")
+    system("mv apps/#{package_name}/general/#{oldgenHTML} apps/#{package_name}/general/#{newgenHTML}")
+    return package_name, version_name
+  end
+
+  def extract_older_version_features(section, apkname, title)
+    title = title.gsub(/\s+/, "")
+    versionNum = /\d+(.\d+)+$/.match(section.css('div.download-text').text.strip)
+    version = Version.new(versionNum)
+    version.version = versionNum
+    version.size = section.css('div.download-wrap a div.download-size').text.strip
+    if section.css('p.latest-updated-date').text.strip.gsub(/^Added on /,"") != "Added on"
+      version.update_date = section.css('p.latest-updated-date').text.strip.gsub(/^Added on /,"")
+    else
+      version.update_date = "None specified"
+    end
+    version.what_is_new = section.css('ul').text.strip
+    version.download_link = section.css('div.download-wrap a')[0]['href']
+
+    filename = apkname.to_s + '-' + version.version.to_s
+    rootdirectory = "apps/#{apkname}/versions/#{version.version}"
+    appname = filename + '.apk'
+    jsondirectory = filename + '.json'
+    system("mkdir -p #{rootdirectory}")
+    system("wget '#{version.download_link}' -O #{rootdirectory}/#{appname}")
+    File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
+      f.write(version.to_json)
+    end
+    package_name, version_name = search_aapt(title, version.version, appname, jsondirectory)
+    if version.version != version_name
+      system("mv apps/#{apkname}/versions/#{version.version} apps/#{apkname}/versions/#{version_name}")
+    end
+  end
+
+  def search_aapt(appName, version, apkname, jsondirectory)
+    output = `../../adt-bundle/sdk/build-tools/android-4.4W/aapt dump badging apps/#{appName}/versions/#{version}/#{apkname} | grep package`
+    if output == ""
+      corrupt_name = version.to_s + "corrupt"
+      system("mv apps/#{appName}/versions/#{version} apps/#{appName}/versions/#{corrupt_name}")
+      return
+    end
+    pattern = /package\: name='(?<PackageName>\S+)' versionCode='\d+' versionName='(?<VersionName>\S+)'/
+    parts = output.match(pattern)
+    return parts['PackageName'], parts['VersionName']
+  end
+
   def firstextract_DrawerFeatures(url, title)
     version = Version.new(title)
+    puts "-=-=-=-=-=-=-#{url}-=-=-=-=-=-=-=-=-="
     page = Nokogiri::HTML(open(url))
     version.title = page.css('h1.entry-title').text.strip
     version.creator = page.css('a.devlink').text.strip
@@ -82,6 +185,8 @@ class Scraping
     version.version = page.css('div#app-details ul li')[5].text.strip
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
     version.download_link = page.css('div.download-wrap a')[0]['href']
+    version.download_link = version.download_link.gsub(/^\S+\//,"https://drive.google.com/")
+    puts "-=-=-=-=-=-=-#{version.download_link}-=-=-=-=-=-=-=-=-="
     filename = title.to_s + '-' + version.version.to_s
     rootdirectory = "apps/#{title}/versions/#{version.version}"
     appname = filename + '.apk'
@@ -119,6 +224,7 @@ class Scraping
     version.version = page.css('div#app-details ul li')[5].text.strip
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
     version.download_link = page.css('div.download-wrap a')[0]['href']
+    version.download_link = version.download_link.gsub(/^\S+\//,"https://drive.google.com/")
     filename = title.to_s + '-' + version.version.to_s
     rootdirectory = "apps/#{packageName}/versions/#{version.version}"
     appname = filename + '.apk'
@@ -141,18 +247,6 @@ class Scraping
     system("mv apps/#{packageName}/versions/#{version_name}/#{appname} apps/#{packageName}/versions/#{version_name}/#{newAPK}")
     system("mv apps/#{packageName}/versions/#{version_name}/#{htmlname} apps/#{packageName}/versions/#{version_name}/#{newHTML}")
     system("mv apps/#{packageName}/versions/#{version_name}/#{jsondirectory} apps/#{packageName}/versions/#{version_name}/#{newJSON}")
-  end
-
-  def search_aapt(appName, version, apkname, htmlname, jsondirectory)
-    output = `../../adt-bundle/sdk/build-tools/android-4.4W/aapt dump badging apps/#{appName}/versions/#{version}/#{apkname} | grep package`
-    if output == ""
-      corrupt_name = version.to_s + "corrupt"
-      system("mv apps/#{appName}/versions/#{version} apps/#{appName}/versions/#{corrupt_name}")
-      return
-    end
-    pattern = /package\: name='(?<PackageName>\S+)' versionCode='\d+' versionName='(?<VersionName>\S+)'/
-    parts = output.match(pattern)
-    return parts['PackageName'], parts['VersionName']
   end
 
   def start_main(packagesArray)
