@@ -5,8 +5,7 @@ A program using Ruby to scrape data and crawl Android Drawer using [Nokogiri](ht
 ```
 scraping.rb csv_file
 ```
-
-##Example
+Example
 ```
 scraping.rb packages.csv
 ```
