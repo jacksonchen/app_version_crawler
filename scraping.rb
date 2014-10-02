@@ -6,6 +6,7 @@ require 'date'
 require 'nokogiri'
 require 'open-uri'
 require 'csv'
+require 'fileutils'
 require_relative 'app'
 
 class Scraping
@@ -20,8 +21,13 @@ class Scraping
     android_drawer_url = "http://androiddrawer.com/search-results/?q=" + keyword
     puts "Downloading #{android_drawer_url}"
 
-    system("phantomjs load_ajax.js '#{android_drawer_url}' search.html")
-    browse_query(keyword)
+    system("phantomjs load_ajax.js '#{android_drawer_url}' search.html 1")
+    results = Nokogiri::HTML(open("search.html"))
+    pages = results.css('div.gsc-cursor')
+    pages.each do |pageNum|
+      system("phantomjs load_ajax.js '#{android_drawer_url}' search.html #{pageNum}")
+      browse_query(keyword)
+    end
   end
 
   def browse_query(keyword)
@@ -37,7 +43,7 @@ class Scraping
         if appTitle.include?(title) == false
           extract_gen_features(url, title)
           package_name, version_name = extract_latest_version_features(searchApp, title)
-
+          break
           older_versions = searchApp.css('div.old-version-content-wrap')
           older_versions.each do |version|
              extract_older_version_features(version, package_name, title)
@@ -86,27 +92,47 @@ class Scraping
       f.write(version.to_json)
     end
     package_name, version_name = search_aapt(title, version.version, appname, jsondirectory)
-    system("mv apps/#{title} apps/#{package_name}")
-    if version.version != version_name
-      system("mv apps/#{package_name}/versions/#{version.version} apps/#{package_name}/versions/#{version_name}")
+    puts "~~~~~~~~~~~~~~~#{package_name}~~~~~~~~~~~"
+    if package_name =~ /(^[^\.])([^\.]+)\.([^\.])([^\.]+)\.([^\.]+)/
+      package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)(\.([^\.]+))+/.match(package_name)
+      first_package_letter = package_parsing[1]
+      first_package_section = package_parsing[1] + package_parsing[2]
+      second_package_letter = package_parsing[3]
+      second_package_section = package_parsing[3] + package_parsing[4]
+      last_package_section = package_parsing[-1]
+      FileUtils::mkdir_p "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}/multiple_versions" unless Dir.exists?("apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}/multiple_versions")
+      FileUtils.mv("apps/#{title.to_s}/general", "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}")
+      File.rename("apps/#{title.to_s}/versions", "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}/multiple_versions")
+      FileUtils.rmdir "apps/#{title.to_s}"
+    else
+      package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)/.match(package_name)
+      first_package_letter = package_parsing[1]
+      first_package_section = package_parsing[1] + package_parsing[2]
+      second_package_letter = package_parsing[3]
+      second_package_section = package_parsing[3] + package_parsing[4]
+      FileUtils::mkdir_p "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/multiple_versions" unless Dir.exists?("apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/multiple_versions")
+      FileUtils.mv("apps/#{title.to_s}/general", "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/multiple_versions")
     end
-    newversionFilename = package_name.to_s + "-" + version_name.to_s
-    newgenFilename = package_name.to_s + "-general"
-    newAPK = newversionFilename + '.apk'
-    newgenJSON = newgenFilename + '.json'
-    newgenHTML = newgenFilename + '.html'
-    newversionJSON = newversionFilename + '.json'
+    # if version.version != version_name
+    #   FileUtils.mv("apps/#{package_name}/versions/#{version.version} apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{package_name}/multiple_versions")
+    # end
+    # newversionFilename = package_name.to_s + "-" + version_name.to_s
+    # newgenFilename = package_name.to_s + "-general"
+    # newAPK = newversionFilename + '.apk'
+    # newgenJSON = newgenFilename + '.json'
+    # newgenHTML = newgenFilename + '.html'
+    # newversionJSON = newversionFilename + '.json'
 
-    oldgenFilename = title.to_s + "-general"
-    oldgenJSON = oldgenFilename + '.json'
-    oldgenHTML = oldgenFilename + '.html'
+    # oldgenFilename = title.to_s + "-general"
+    # oldgenJSON = oldgenFilename + '.json'
+    # oldgenHTML = oldgenFilename + '.html'
 
-    #Renames version files with apk names
-    system("mv apps/#{package_name}/versions/#{version_name}/#{appname} apps/#{package_name}/versions/#{version_name}/#{newAPK}")
-    system("mv apps/#{package_name}/versions/#{version_name}/#{jsondirectory} apps/#{package_name}/versions/#{version_name}/#{newversionJSON}")
-    #Renames general files with apk names
-    system("mv apps/#{package_name}/general/#{oldgenJSON} apps/#{package_name}/general/#{newgenJSON}")
-    system("mv apps/#{package_name}/general/#{oldgenHTML} apps/#{package_name}/general/#{newgenHTML}")
+    # #Renames version files with apk names
+    # FileUtils.mv("apps/#{package_name}/versions/#{version_name}/#{appname}", "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{package_name}/multiple_versions/#{version_name}/#{newAPK}")
+    # FileUtils.mv("apps/#{package_name}/versions/#{version_name}/#{jsondirectory}", "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{package_name}/multiple_versions/#{version_name}/#{newversionJSON}")
+    # #Renames general files with apk names
+    # FileUtils.mv("apps/#{package_name}/general/#{oldgenJSON}", "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{package_name}/multiple_versions/general/#{newgenJSON}")
+    # FileUtils.mv("apps/#{package_name}/general/#{oldgenHTML}", "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{package_name}/multiple_versions/general/#{newgenHTML}")
     return package_name, version_name
   end
 
