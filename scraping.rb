@@ -39,12 +39,15 @@ class Scraping
         puts "===== Fetching #{element['href']} ====="
         searchApp =  Nokogiri::HTML(open(element['href']))
         url = element['href']
-        title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"")
+        title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"").gsub(/&/,"")
         if appTitle.include?(title) == false
           extract_gen_features(url, title)
           package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_latest_version_features(searchApp, title)
           older_versions = searchApp.css('div.old-version-content-wrap')
           older_versions.each do |version|
+             if package_name.nil?
+              package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section)
+             end
              extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section)
           end
           appTitle.push(title)
@@ -63,12 +66,12 @@ class Scraping
     app.domain = page.css('div#crumbs a')[1].text.strip
     app.category = page.css('div#crumbs a')[2].text.strip
     rootdirectory = "apps/#{title}/general"
-    system("mkdir -p #{rootdirectory}")
+    FileUtils::mkdir_p "#{rootdirectory}"
     filename = title.to_s + "-general"
     jsondirectory = filename + ".json"
     htmldirectory = filename + ".html"
     system("wget '#{url}' -O #{rootdirectory}/#{htmldirectory}")
-    File.open("#{rootdirectory}/#{jsondirectory}", 'w')  do |f|
+    File.open("#{rootdirectory}/#{jsondirectory}", 'wb')  do |f|
       f.write(app.to_json)
     end
   end
@@ -84,61 +87,65 @@ class Scraping
     rootdirectory = "apps/#{title}/versions/#{version.version}"
     filename = title.to_s + '-' + version.version.to_s
     appname = filename + '.apk'
+    app_directory = "#{rootdirectory}/#{appname}"
     jsondirectory = filename + '.json'
     system("mkdir -p #{rootdirectory}")
-    system("wget '#{version.download_link}' -O #{rootdirectory}/#{appname}")
+    system("wget '#{version.download_link}' -O #{app_directory}")
     File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
       f.write(version.to_json)
     end
-    package_name, version_name = search_aapt(title, version.version, appname, jsondirectory)
-    puts "~~~~~~~~~~~~~~~#{package_name}~~~~~~~~~~~"
+    package_name, version_name = search_aapt(app_directory)
+    if !package_name.nil?
 
-    newversionFilename = package_name.to_s + "-" + version_name.to_s
-    newgenFilename = package_name.to_s + "-general"
-    newAPK = newversionFilename + '.apk'
-    newgenJSON = newgenFilename + '.json'
-    newgenHTML = newgenFilename + '.html'
-    newversionJSON = newversionFilename + '.json'
+      newversionFilename = package_name.to_s + "-" + version_name.to_s
+      newgenFilename = package_name.to_s + "-general"
+      newAPK = newversionFilename + '.apk'
+      newgenJSON = newgenFilename + '.json'
+      newgenHTML = newgenFilename + '.html'
+      newversionJSON = newversionFilename + '.json'
 
-    oldgenFilename = title.to_s + "-general"
-    oldgenJSON = oldgenFilename + '.json'
-    oldgenHTML = oldgenFilename + '.html'
+      oldgenFilename = title.to_s + "-general"
+      oldgenJSON = oldgenFilename + '.json'
+      oldgenHTML = oldgenFilename + '.html'
 
-    if package_name =~ /(^[^\.])([^\.]+)\.([^\.])([^\.]+)\.([^\.]+)/
-      package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)(\.([^\.]+))+/.match(package_name)
-      first_package_letter = package_parsing[1]
-      first_package_section = package_parsing[1] + package_parsing[2]
-      second_package_letter = package_parsing[3]
-      second_package_section = package_parsing[3] + package_parsing[4]
-      last_package_section = package_parsing[-1]
-      rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}"
+      if package_name =~ /(^[^\.])([^\.]+)\.([^\.])([^\.]+)\.([^\.]+)/
+        package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)(\.([^\.]+))+/.match(package_name)
+        first_package_letter = package_parsing[1]
+        first_package_section = package_parsing[1] + package_parsing[2]
+        second_package_letter = package_parsing[3]
+        second_package_section = package_parsing[3] + package_parsing[4]
+        last_package_section = package_parsing[-1]
+        rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}"
+      else
+        package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)/.match(package_name)
+        first_package_letter = package_parsing[1]
+        first_package_section = package_parsing[1] + package_parsing[2]
+        second_package_letter = package_parsing[3]
+        second_package_section = package_parsing[3] + package_parsing[4]
+        rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}"
+        last_package_section = ""
+      end
+
+      FileUtils::mkdir_p "#{rootdirectory}/multiple_versions" unless Dir.exists?("#{rootdirectory}/multiple_versions")
+      FileUtils.mv("apps/#{title.to_s}/general", "#{rootdirectory}")
+      FileUtils.mv("apps/#{title.to_s}/versions/#{version.version}", "#{rootdirectory}/multiple_versions")
+      FileUtils.rm_rf "apps/#{title.to_s}"
+
+      if version.version != version_name
+        File.rename("#{rootdirectory}/multiple_versions/#{version.version}", "#{rootdirectory}/multiple_versions/#{version_name}")
+      end
+
+      #Renames version files with apk names
+      FileUtils.mv("#{rootdirectory}/multiple_versions/#{version_name}/#{appname}", "#{rootdirectory}/multiple_versions/#{version_name}/#{newAPK}")
+      FileUtils.mv("#{rootdirectory}/multiple_versions/#{version_name}/#{jsondirectory}", "#{rootdirectory}/multiple_versions/#{version_name}/#{newversionJSON}")
+      #Renames general files with apk names
+      FileUtils.mv("#{rootdirectory}/general/#{oldgenJSON}", "#{rootdirectory}/general/#{newgenJSON}")
+      FileUtils.mv("#{rootdirectory}/general/#{oldgenHTML}", "#{rootdirectory}/general/#{newgenHTML}")
+
+      return package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
     else
-      package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)/.match(package_name)
-      first_package_letter = package_parsing[1]
-      first_package_section = package_parsing[1] + package_parsing[2]
-      second_package_letter = package_parsing[3]
-      second_package_section = package_parsing[3] + package_parsing[4]
-      rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}"
-      last_package_section = ""
+      return
     end
-
-    FileUtils::mkdir_p "#{rootdirectory}/multiple_versions" unless Dir.exists?("#{rootdirectory}/multiple_versions")
-    FileUtils.mv("apps/#{title.to_s}/general", "#{rootdirectory}")
-    FileUtils.mv("apps/#{title.to_s}/versions/#{version.version}", "#{rootdirectory}/multiple_versions")
-    FileUtils.rmdir "apps/#{title.to_s}"
-
-    if version.version != version_name
-      FileUtils.mv("#{rootdirectory}/multiple_versions/#{version.version}", "#{rootdirectory}/multiple_versions/#{version_name}")
-    end
-
-    #Renames version files with apk names
-    FileUtils.mv("#{rootdirectory}/multiple_versions/#{version_name}/#{appname}", "#{rootdirectory}/multiple_versions/#{version_name}/#{newAPK}")
-    FileUtils.mv("#{rootdirectory}/multiple_versions/#{version_name}/#{jsondirectory}", "#{rootdirectory}/multiple_versions/#{version_name}/#{newversionJSON}")
-    #Renames general files with apk names
-    FileUtils.mv("#{rootdirectory}/general/#{oldgenJSON}", "#{rootdirectory}/general/#{newgenJSON}")
-    FileUtils.mv("#{rootdirectory}/general/#{oldgenHTML}", "#{rootdirectory}/general/#{newgenHTML}")
-
-    return package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
   end
 
   def extract_older_version_features(section, apkname, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section)
@@ -154,38 +161,103 @@ class Scraping
     end
     version.what_is_new = section.css('ul').text.strip
     version.download_link = section.css('div.download-wrap a')[0]['href']
-
-    filename = apkname.to_s + '-' + version.version.to_s
-    if last_package_section.empty?
-      rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/multiple_versions"
-    else
-      rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}/multiple_versions"
-    end
-    appname = filename + '.apk'
-    jsondirectory = filename + '.json'
-
-    FileUtils::mkdir_p "#{rootdirectory}/#{version.version}" unless Dir.exists?("#{rootdirectory}/#{version.version}")
-    package_name, version_name = search_aapt(title, version.version, appname, jsondirectory)
-    if !package_name.nil?
-      if version.version != version_name
-        FileUtils.mv("#{rootdirectory}/#{version.version}", "#{rootdirectory}/#{version_name}")
-      end
-
-      system("wget '#{version.download_link}' -O #{rootdirectory}/#{version_name}/#{appname}")
-      File.open("#{rootdirectory}/#{version_name}/#{jsondirectory}", 'w') do |f|
+    if first_package_letter.nil?
+      rootdirectory = "apps/#{title}/versions/#{version.version}"
+      filename = title.to_s + '-' + version.version.to_s
+      appname = filename + '.apk'
+      jsondirectory = filename + '.json'
+      app_directory = "#{rootdirectory}/#{appname}"
+    system("mkdir -p #{rootdirectory}")
+      system("wget '#{version.download_link}' -O #{app_directory}")
+      package_name, version_name = search_aapt(app_directory)
+      File.open("#{rootdirectory}/#{jsondirectory}", 'wb') do |f|
         f.write(version.to_json)
+      end
+      package_name, version_name = search_aapt(app_directory)
+      if !package_name.nil?
+        newversionFilename = package_name.to_s + "-" + version_name.to_s
+        newgenFilename = package_name.to_s + "-general"
+        newAPK = newversionFilename + '.apk'
+        newgenJSON = newgenFilename + '.json'
+        newgenHTML = newgenFilename + '.html'
+        newversionJSON = newversionFilename + '.json'
+
+        oldgenFilename = title.to_s + "-general"
+        oldgenJSON = oldgenFilename + '.json'
+        oldgenHTML = oldgenFilename + '.html'
+
+        if package_name =~ /(^[^\.])([^\.]+)\.([^\.])([^\.]+)\.([^\.]+)/
+          package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)(\.([^\.]+))+/.match(package_name)
+          first_package_letter = package_parsing[1]
+          first_package_section = package_parsing[1] + package_parsing[2]
+          second_package_letter = package_parsing[3]
+          second_package_section = package_parsing[3] + package_parsing[4]
+          last_package_section = package_parsing[-1]
+          rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}"
+        else
+          package_parsing = /(^[^\.])([^\.]+)\.([^\.])([^\.]+)/.match(package_name)
+          first_package_letter = package_parsing[1]
+          first_package_section = package_parsing[1] + package_parsing[2]
+          second_package_letter = package_parsing[3]
+          second_package_section = package_parsing[3] + package_parsing[4]
+          rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}"
+          last_package_section = ""
+        end
+
+        FileUtils::mkdir_p "#{rootdirectory}/multiple_versions" unless Dir.exists?("#{rootdirectory}/multiple_versions")
+        FileUtils.mv("apps/#{title.to_s}/general", "#{rootdirectory}")
+        FileUtils.mv("apps/#{title.to_s}/versions/#{version.version}", "#{rootdirectory}/multiple_versions")
+        FileUtils.rm_rf "apps/#{title.to_s}"
+
+        if version.version != version_name
+          File.rename("#{rootdirectory}/multiple_versions/#{version.version}", "#{rootdirectory}/multiple_versions/#{version_name}")
+        end
+
+        #Renames version files with apk names
+        FileUtils.mv("#{rootdirectory}/multiple_versions/#{version_name}/#{appname}", "#{rootdirectory}/multiple_versions/#{version_name}/#{newAPK}")
+        FileUtils.mv("#{rootdirectory}/multiple_versions/#{version_name}/#{jsondirectory}", "#{rootdirectory}/multiple_versions/#{version_name}/#{newversionJSON}")
+        #Renames general files with apk names
+        FileUtils.mv("#{rootdirectory}/general/#{oldgenJSON}", "#{rootdirectory}/general/#{newgenJSON}")
+        FileUtils.mv("#{rootdirectory}/general/#{oldgenHTML}", "#{rootdirectory}/general/#{newgenHTML}")
+
+        return package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
+      end
+    else
+      filename = apkname.to_s + '-' + version.version.to_s
+      if last_package_section.empty?
+        rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/multiple_versions"
+      else
+        rootdirectory = "apps/#{first_package_letter}/#{first_package_section}/#{second_package_letter}/#{second_package_section}/#{last_package_section}/multiple_versions"
+      end
+      appname = filename + '.apk'
+      jsondirectory = filename + '.json'
+
+      FileUtils::mkdir_p "#{rootdirectory}/#{version.version}" unless Dir.exists?("#{rootdirectory}/#{version.version}")
+      app_directory = "#{rootdirectory}/#{version.version}/#{appname}"
+      system("wget '#{version.download_link}' -O #{app_directory}")
+      package_name, version_name = search_aapt(app_directory)
+      if !package_name.nil?
+        if version.version != version_name
+          File.rename("#{rootdirectory}/#{version.version}", "#{rootdirectory}/#{version_name}")
+        end
+
+        File.open("#{rootdirectory}/#{version_name}/#{jsondirectory}", 'w') do |f|
+          f.write(version.to_json)
+        end
       end
     end
   end
 
-  def search_aapt(appName, version, apkname, jsondirectory)
-    output = `../../adt-bundle/sdk/build-tools/android-4.4W/aapt dump badging apps/#{appName}/versions/#{version}/#{apkname} | grep package`
+  def search_aapt(directory_path)
+    output = `../../adt-bundle/sdk/build-tools/android-4.4W/aapt dump badging #{directory_path} | grep package`
     if output == ""
       return
-    end
+    else
     pattern = /package\: name='(?<PackageName>\S+)' versionCode='\d+' versionName='(?<VersionName>\S+)'/
     parts = output.match(pattern)
     return parts['PackageName'], parts['VersionName']
+    end
+
   end
 
   def start_main(packagesArray)
