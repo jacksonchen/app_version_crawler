@@ -3,8 +3,8 @@ A program using Ruby to scrape data and crawl Android Drawer using [Nokogiri](ht
 
 ##Usage
 ```
-scraping.rb csv_file output_directory
+scraping.rb csv_file aapt_file output_directory
 ```
 Example
 ```
-scraping.rb packages.csv apps/
+scraping.rb packages.csv ../../adt-bundle/sdk/build-tools/android-4.4W/aapt apps/

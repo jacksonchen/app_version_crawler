@@ -17,15 +17,15 @@ class Scraping
 
   private
 
-  def download_drawer(keyword, output_dir)
+  def download_drawer(keyword, aapt_dir, output_dir)
     android_drawer_url = "http://androiddrawer.com/search-results/?q=" + keyword
     puts "Downloading #{android_drawer_url}"
 
     system("phantomjs load_ajax.js '#{android_drawer_url}' search.html")
-    browse_query(keyword, output_dir)
+    browse_query(keyword, aapt_dir, output_dir)
   end
 
-  def browse_query(keyword, output_dir)
+  def browse_query(keyword, aapt_dir, output_dir)
     results = Nokogiri::HTML(open("search.html"))
     appTitle = Array.new()
     linkArray = results.css('a.gs-title')
@@ -37,13 +37,13 @@ class Scraping
         title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"").gsub(/&/,"")
         if appTitle.include?(title) == false
           extract_gen_features(url, title, output_dir)
-          package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_latest_version_features(searchApp, title, output_dir)
+          package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_latest_version_features(searchApp, title, aapt_dir, output_dir)
           older_versions = searchApp.css('div.old-version-content-wrap')
           older_versions.each do |version|
              if package_name.nil?
-              package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, output_dir)
+              package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
              end
-             extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, output_dir)
+             extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
           end
           appTitle.push(title)
         end
@@ -71,7 +71,7 @@ class Scraping
     end
   end
 
-  def extract_latest_version_features(page, title, output_dir)
+  def extract_latest_version_features(page, title, aapt_dir, output_dir)
     title = title.gsub(/\s+/, "")
     version = Version.new(title)
     version.size = page.css('div.changelog-wrap div.download-wrap a div.download-size').text.strip
@@ -89,7 +89,7 @@ class Scraping
     File.open("#{rootdirectory}/#{jsondirectory}", 'w') do |f|
       f.write(version.to_json)
     end
-    package_name, version_name = search_aapt(app_directory)
+    package_name, version_name = search_aapt(app_directory, aapt_dir)
     if !package_name.nil?
       file_rename(package_name, version_name, title, version.version, appname, jsondirectory, output_dir)
     else
@@ -146,7 +146,7 @@ class Scraping
       return package_name, version_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
   end
 
-  def extract_older_version_features(section, apkname, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, output_dir)
+  def extract_older_version_features(section, apkname, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
     title = title.gsub(/\s+/, "")
     versionNum = /\d+(.\d+)+$/.match(section.css('div.download-text').text.strip)
     version = Version.new(versionNum)
@@ -165,16 +165,16 @@ class Scraping
       appname = filename + '.apk'
       jsondirectory = filename + '.json'
       app_directory = "#{rootdirectory}/#{appname}"
-    system("mkdir -p #{rootdirectory}")
+      system("mkdir -p #{rootdirectory}")
       system("wget '#{version.download_link}' -O #{app_directory}")
-      package_name, version_name = search_aapt(app_directory)
+      package_name, version_name = search_aapt(app_directory, aapt_dir)
       File.open("#{rootdirectory}/#{jsondirectory}", 'wb') do |f|
         f.write(version.to_json)
-      end
-      package_name, version_name = search_aapt(app_directory)
-      if !package_name.nil?
-        file_rename(package_name, version_name, title, version.version, appname, jsondirectory)
-      end
+    end
+    package_name, version_name = search_aapt(app_directory, aapt_dir)
+    if !package_name.nil?
+      file_rename(package_name, version_name, title, version.version, appname, jsondirectory)
+    end
     else
       filename = apkname.to_s + '-' + version.version.to_s
       if last_package_section.empty?
@@ -188,7 +188,7 @@ class Scraping
       FileUtils::mkdir_p "#{rootdirectory}/#{version.version}" unless Dir.exists?("#{rootdirectory}/#{version.version}")
       app_directory = "#{rootdirectory}/#{version.version}/#{appname}"
       system("wget '#{version.download_link}' -O #{app_directory}")
-      package_name, version_name = search_aapt(app_directory)
+      package_name, version_name = search_aapt(app_directory, aapt_dir)
       if !package_name.nil?
         if version.version != version_name
           File.rename("#{rootdirectory}/#{version.version}", "#{rootdirectory}/#{version_name}")
@@ -201,8 +201,8 @@ class Scraping
     end
   end
 
-  def search_aapt(directory_path)
-    output = `../../adt-bundle/sdk/build-tools/android-4.4W/aapt dump badging #{directory_path} | grep package`
+  def search_aapt(directory_path, aapt_dir)
+    output = `#{aapt_dir} dump badging #{directory_path} | grep package`
     if output == ""
       return
     else
@@ -213,9 +213,9 @@ class Scraping
 
   end
 
-  def start_main(packagesArray, output_dir)
+  def start_main(packagesArray, aapt_dir, output_dir)
     for keyword in packagesArray
-      download_drawer(keyword, output_dir)
+      download_drawer(keyword, aapt_dir, output_dir)
     end
   end
 
@@ -245,14 +245,15 @@ class Scraping
     end
 
     csv_text = File.read(argv[0])
-    output_dir = argv[1]
+    output_dir = argv[2]
+    aapt_dir = argv[1]
     packagesArray = Array.new()
     CSV.parse(csv_text) do |row|
       row.each do |x|
         packagesArray.push(x.strip.gsub(/^\s+/,""))
       end
     end
-    start_main(packagesArray, output_dir)
+    start_main(packagesArray, aapt_dir, output_dir)
   end
 end
 
