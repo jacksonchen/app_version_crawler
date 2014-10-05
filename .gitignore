@@ -1,2 +1,5 @@
 .DS_Store
 apps/
+search.html
+packages.csv
+curr.queries.list

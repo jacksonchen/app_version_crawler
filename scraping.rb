@@ -21,13 +21,8 @@ class Scraping
     android_drawer_url = "http://androiddrawer.com/search-results/?q=" + keyword
     puts "Downloading #{android_drawer_url}"
 
-    system("phantomjs load_ajax.js '#{android_drawer_url}' search.html 1")
-    results = Nokogiri::HTML(open("search.html"))
-    pages = results.css('div.gsc-cursor')
-    pages.each do |pageNum|
-      system("phantomjs load_ajax.js '#{android_drawer_url}' search.html #{pageNum}")
-      browse_query(keyword)
-    end
+    system("phantomjs load_ajax.js '#{android_drawer_url}' search.html")
+    browse_query(keyword)
   end
 
   def browse_query(keyword)

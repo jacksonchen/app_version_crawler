@@ -45,10 +45,10 @@ var page = require('webpage').create(),
 	fs = require('fs'),
 	address, output, page;
 
-if (system.args.length != 4) {
+if (system.args.length != 3) {
 	console.log('Usage: phantomjs load_ajax.js URL output_filename page_number');
 	console.log('  Example: phantomjs load_ajax.js' +
-		' http://www.androiddrawer.com/search-results/?q=evernote evernote-results.html 1');
+		' http://www.androiddrawer.com/search-results/?q=evernote evernote-results.html');
 	phantom.exit(1);
 } else {
 	address = system.args[1];
