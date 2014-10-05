@@ -83,7 +83,8 @@ class Scraping
     version.size = page.css('div.changelog-wrap div.download-wrap a div.download-size').text.strip
     version.update_date = page.css('div.changelog-wrap p.latest-updated-date').text.strip.gsub(/^\S+\s/,"")
     version.version = page.css('div.app-contents-wrap h3.section-title')[0].text.strip.gsub(/^\S+\s\S+\s/,"")
-    version.what_is_new = page.css('div.recent-change').text.strip
+    version.what_is_new = page.css('div.changelog-wrap ul').text.strip
+    puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~#{version.what_is_new}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     version.download_link = page.css('div.download-wrap a')[0]['href']
     rootdirectory = "#{output_dir}/#{title}/versions/#{version.version}"
     filename = title.to_s + '-' + version.version.to_s
