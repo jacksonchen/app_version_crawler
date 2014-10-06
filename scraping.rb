@@ -52,7 +52,6 @@ class Scraping
             end
           end
           @appTitle.push(title)
-          puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#{appTitle}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
           @extracted = false
         end
       end
@@ -65,7 +64,7 @@ class Scraping
     app = App.new(title)
     app.title = page.css('h1.entry-title').text.strip
     app.creator = page.css('a.devlink').text.strip
-    app.description = page.css('div.app-description-wrap')[0].children.text.strip
+    app.description = page.css('div.app-description-wrap')[0].text.strip
     app.domain = page.css('div#crumbs a')[1].text.strip
     app.category = page.css('div#crumbs a')[2].text.strip
     rootdirectory = "#{output_dir}/#{title}/general"
