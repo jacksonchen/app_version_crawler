@@ -83,7 +83,7 @@ class Scraping
     version = Version.new(title)
     version.size = page.css('div.changelog-wrap div.download-wrap a div.download-size').text.strip
     version.update_date = page.css('div.changelog-wrap p.latest-updated-date').text.strip.gsub(/^\S+\s/,"")
-    version.version = page.css('div.app-contents-wrap h3.section-title')[0].text.strip.gsub(/^\S+\s\S+\s/,"")
+    version.version = /\d+(.\d+)+/.match(page.css('div.app-contents-wrap h3.section-title')[0].text.strip)
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
     version.download_link = page.css('div.download-wrap a')[0]['href']
     rootdirectory = "#{output_dir}/#{title}/versions/#{version.version}"
@@ -103,13 +103,13 @@ class Scraping
       if !version_name.nil? && version.version.to_s != version_name.to_s
         FileUtils.mv "#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}"
       end
-      first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version_name, aapt_dir, output_dir)
+      first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version.version, version_name, aapt_dir, output_dir)
       @extracted = true
       return package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
     end
   end
 
-  def file_rename(package_name, title, version, aapt_dir, output_dir)
+  def file_rename(package_name, title, old_version, version, aapt_dir, output_dir)
     newversionFilename = package_name.to_s + "-" + version.to_s
     newgenFilename = package_name.to_s + "-general"
     newAPK = newversionFilename + '.apk'
@@ -120,7 +120,7 @@ class Scraping
     oldgenFilename = title.to_s + "-general"
     oldgenJSON = oldgenFilename + '.json'
     oldgenHTML = oldgenFilename + '.html'
-    oldverFilename = title.to_s + '-' + version.to_s
+    oldverFilename = title.to_s + '-' + old_version.to_s
     oldverAPK = oldverFilename + '.apk'
     oldverJSON = oldverFilename + '.json'
 
@@ -186,10 +186,11 @@ class Scraping
       if package_name.nil?
         FileUtils.rm_rf "#{output_dir}/#{title}/versions/#{version.version}"
       else
-        if !version_name.nil? && version.version.to_s != version_name.to_s
+        if version.version != version_name
+        puts "~~~~~~~~~~~~~~~~~~~~#{version.version != version_name}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
           FileUtils.mv("#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}")
         end
-        first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version_name, aapt_dir, output_dir)
+        first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version.version, version_name, aapt_dir, output_dir)
         @extracted = true
         return package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
       end
