@@ -10,14 +10,15 @@ require 'fileutils'
 require_relative 'app'
 
 class Scraping
-  attr_accessor :extracted
+  attr_accessor :extracted, :appTitle
   @@usage = "Usage: #{$PROGRAM_NAME} csv_file"
   # BASE_URL = 'https://play.google.com'
   # APPS_PATH = '/store/apps'
   # QUERY_STRING = '/details?id='
 
-  def initialize(extracted = false)
+  def initialize(extracted = false, appTitle = Array.new())
     @extracted = extracted
+    @appTitle = appTitle
   end
 
   private
@@ -32,7 +33,6 @@ class Scraping
 
   def browse_query(keyword, aapt_dir, output_dir)
     results = Nokogiri::HTML(open("search.html"))
-    appTitle = Array.new()
     linkArray = results.css('a.gs-title')
     linkArray.each do |element|
       if element['href'] != nil
@@ -47,10 +47,12 @@ class Scraping
           older_versions.each do |version|
             if extracted == false
               package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
+            else
+              extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
             end
-            extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
           end
-          appTitle.push(title)
+          @appTitle.push(title)
+          puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#{appTitle}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
           @extracted = false
         end
       end
@@ -84,7 +86,6 @@ class Scraping
     version.update_date = page.css('div.changelog-wrap p.latest-updated-date').text.strip.gsub(/^\S+\s/,"")
     version.version = page.css('div.app-contents-wrap h3.section-title')[0].text.strip.gsub(/^\S+\s\S+\s/,"")
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
-    puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~#{version.what_is_new}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     version.download_link = page.css('div.download-wrap a')[0]['href']
     rootdirectory = "#{output_dir}/#{title}/versions/#{version.version}"
     filename = title.to_s + '-' + version.version.to_s
@@ -103,7 +104,6 @@ class Scraping
       if !version_name.nil? && version.version.to_s != version_name.to_s
         FileUtils.mv "#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}"
       end
-      first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = ""
       first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version_name, aapt_dir, output_dir)
       @extracted = true
       return package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
@@ -143,22 +143,17 @@ class Scraping
       last_package_section = ""
     end
 
-    if Dir.exists?("#{rootdirectory}/multiple_versions")
-      FileUtils.mv("#{rootdirectory}/multiple_versions/#{version}/#{oldverAPK}", "#{rootdirectory}/multiple_versions/#{version}/#{newAPK}")
-      FileUtils.mv("#{rootdirectory}/multiple_versions/#{version}/#{oldverJSON}", "#{rootdirectory}/multiple_versions/#{version}/#{newversionJSON}")
-    else
-      FileUtils::mkdir_p "#{rootdirectory}"
-      FileUtils.mv("#{output_dir}/#{title.to_s}/general", "#{rootdirectory}")
-      FileUtils.mv("#{output_dir}/#{title.to_s}/versions", "#{rootdirectory}/multiple_versions")
-      FileUtils.rm_rf "#{output_dir}/#{title.to_s}"
+    FileUtils::mkdir_p "#{rootdirectory}" unless Dir.exists?("#{rootdirectory}/multiple_versions")
+    FileUtils.mv("#{output_dir}/#{title.to_s}/general", "#{rootdirectory}")
+    FileUtils.mv("#{output_dir}/#{title.to_s}/versions", "#{rootdirectory}/multiple_versions")
+    FileUtils.rm_rf "#{output_dir}/#{title.to_s}"
 
-      #Renames version files with apk names
-      FileUtils.mv("#{rootdirectory}/multiple_versions/#{version}/#{oldverAPK}", "#{rootdirectory}/multiple_versions/#{version}/#{newAPK}")
-      FileUtils.mv("#{rootdirectory}/multiple_versions/#{version}/#{oldverJSON}", "#{rootdirectory}/multiple_versions/#{version}/#{newversionJSON}")
-      #Renames general files with apk names
-      FileUtils.mv("#{rootdirectory}/general/#{oldgenJSON}", "#{rootdirectory}/general/#{newgenJSON}")
-      FileUtils.mv("#{rootdirectory}/general/#{oldgenHTML}", "#{rootdirectory}/general/#{newgenHTML}")
-    end
+    #Renames version files with apk names
+    FileUtils.mv("#{rootdirectory}/multiple_versions/#{version}/#{oldverAPK}", "#{rootdirectory}/multiple_versions/#{version}/#{newAPK}")
+    FileUtils.mv("#{rootdirectory}/multiple_versions/#{version}/#{oldverJSON}", "#{rootdirectory}/multiple_versions/#{version}/#{newversionJSON}")
+    #Renames general files with apk names
+    FileUtils.mv("#{rootdirectory}/general/#{oldgenJSON}", "#{rootdirectory}/general/#{newgenJSON}")
+    FileUtils.mv("#{rootdirectory}/general/#{oldgenHTML}", "#{rootdirectory}/general/#{newgenHTML}")
     return first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
   end
 
@@ -195,11 +190,7 @@ class Scraping
         if !version_name.nil? && version.version.to_s != version_name.to_s
           FileUtils.mv "#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}"
         end
-        first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = ""
-        Dir.glob("#{output_dir}/#{title}/versions/**") do |versiondir|
-          versionnum = /[^\/]+$/.match(versiondir)
-          first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, versionnum, aapt_dir, output_dir)
-        end
+        first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version_name, aapt_dir, output_dir)
         @extracted = true
         return package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section
       end
