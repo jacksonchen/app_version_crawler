@@ -39,7 +39,7 @@ class Scraping
         puts "===== Fetching #{element['href']} ====="
         searchApp =  Nokogiri::HTML(open(element['href']))
         url = element['href']
-        title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"").gsub(/&/,"")
+        title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"").gsub(/&/,"").gsub(/[\(\)\:?\/\\%\*|"'\.<>]/,"")
         if appTitle.include?(title) == false
           extract_gen_features(url, title, output_dir)
           package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_latest_version_features(searchApp, title, aapt_dir, output_dir)
@@ -269,7 +269,7 @@ class Scraping
     packagesArray = Array.new()
     CSV.parse(csv_text) do |row|
       row.each do |x|
-        packagesArray.push(x.strip.gsub(/[\s\(\)\:?\/\\%\*|"'\.<>]/,""))
+        packagesArray.push(x.strip.gsub(/^\s+/,""))
       end
     end
     start_main(packagesArray, aapt_dir, output_dir)
