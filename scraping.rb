@@ -269,7 +269,7 @@ class Scraping
     packagesArray = Array.new()
     CSV.parse(csv_text) do |row|
       row.each do |x|
-        packagesArray.push(x.strip.gsub(/^\s+/,""))
+        packagesArray.push(x.strip.gsub(/[\s\(\)\:?\/\\%\*|"'\.<>]/,""))
       end
     end
     start_main(packagesArray, aapt_dir, output_dir)
