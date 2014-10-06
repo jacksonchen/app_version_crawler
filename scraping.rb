@@ -186,8 +186,8 @@ class Scraping
       if package_name.nil?
         FileUtils.rm_rf "#{output_dir}/#{title}/versions/#{version.version}"
       else
-        if version.version != version_name
-        puts "~~~~~~~~~~~~~~~~~~~~#{version.version != version_name}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        if !version_name.nil? && version.version.to_s != version_name.to_s
+          puts "~~~~~~~~~~~~~~~~~#{version.version}~~~~~~~#{version_name}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
           FileUtils.mv("#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}")
         end
         first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version.version, version_name, aapt_dir, output_dir)
