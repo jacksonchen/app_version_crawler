@@ -158,7 +158,7 @@ class Scraping
 
   def extract_older_version_features(section, apkname, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
     title = title.gsub(/\s+/, "")
-    versionNum = /\d+(.\d+)+$/.match(section.css('div.download-text').text.strip)
+    versionNum = /\d+(.\d+)+/.match(section.css('div.download-text').text.strip)
     version = Version.new(versionNum)
     version.version = versionNum
     version.size = section.css('div.download-wrap a div.download-size').text.strip
@@ -187,7 +187,7 @@ class Scraping
         FileUtils.rm_rf "#{output_dir}/#{title}/versions/#{version.version}"
       else
         if !version_name.nil? && version.version.to_s != version_name.to_s
-          FileUtils.mv "#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}"
+          FileUtils.mv("#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}")
         end
         first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version_name, aapt_dir, output_dir)
         @extracted = true
