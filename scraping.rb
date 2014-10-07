@@ -214,8 +214,8 @@ class Scraping
       if package_name.nil?
         FileUtils.rm_rf "#{rootdirectory}/#{version.version}"
       else
-        if version.version != version_name
-          File.rename("#{rootdirectory}/#{version.version}", "#{rootdirectory}/#{version_name}")
+        if !version_name.nil? && version.version.to_s != version_name.to_s
+          FileUtils.mv("#{rootdirectory}/#{version.version}", "#{rootdirectory}/#{version_name}")
         end
       end
     end
