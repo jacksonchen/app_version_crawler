@@ -64,6 +64,7 @@ class Scraping
     app = App.new(title)
     app.title = page.css('h1.entry-title').text.strip
     app.creator = page.css('a.devlink').text.strip
+    puts "^^^^^^^^^^^^^^^^^^^^^^^^^#{page.css('div.app-description-wrap')[0]}^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
     app.description = page.css('div.app-description-wrap')[0].text.strip
     app.domain = page.css('div#crumbs a')[1].text.strip
     app.category = page.css('div#crumbs a')[2].text.strip
@@ -187,7 +188,6 @@ class Scraping
         FileUtils.rm_rf "#{output_dir}/#{title}/versions/#{version.version}"
       else
         if !version_name.nil? && version.version.to_s != version_name.to_s
-          puts "~~~~~~~~~~~~~~~~~#{version.version}~~~~~~~#{version_name}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
           FileUtils.mv("#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}")
         end
         first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = file_rename(package_name, title, version.version, version_name, aapt_dir, output_dir)
@@ -234,6 +234,7 @@ class Scraping
 
   def start_main(packagesArray, aapt_dir, output_dir)
     for keyword in packagesArray
+      puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#{keyword}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
       download_drawer(keyword, aapt_dir, output_dir)
     end
   end
