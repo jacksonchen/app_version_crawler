@@ -42,40 +42,50 @@ class Scraping
         title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+$/,"").gsub(/&/,"").gsub(/[\(\)\:?\/\\%\*|"'\.<>]/,"")
         if appTitle.include?(title) == false
           extract_gen_features(url, title, output_dir)
-          package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_latest_version_features(searchApp, title, aapt_dir, output_dir)
-          older_versions = searchApp.css('div.old-version-content-wrap')
-          older_versions.each do |version|
-            if extracted == false
-              package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
-            else
-              extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
+          if File.directory?("#{output_dir}/#{title}/general")
+            package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_latest_version_features(searchApp, title, aapt_dir, output_dir)
+            older_versions = searchApp.css('div.old-version-content-wrap')
+            older_versions.each do |version|
+              if extracted == false
+                package_name, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section = extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
+              else
+                extract_older_version_features(version, package_name, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
+              end
             end
+            @appTitle.push(title)
+            @extracted = false
+          else
+            puts "!!!#{title} directory does not exist!!!"
           end
-          @appTitle.push(title)
-          @extracted = false
         end
       end
     end
   end
 
   def extract_gen_features(url, title, output_dir)
-    page = Nokogiri::HTML(open(url))
-    title = title.gsub(/\s+/, "")
-    app = App.new(title)
-    app.title = page.css('h1.entry-title').text.strip
-    app.creator = page.css('a.devlink').text.strip
-    puts "^^^^^^^^^^^^^^^^^^^^^^^^^#{page.css('div.app-description-wrap')[0]}^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
-    app.description = page.css('div.app-description-wrap')[0].text.strip
-    app.domain = page.css('div#crumbs a')[1].text.strip
-    app.category = page.css('div#crumbs a')[2].text.strip
-    rootdirectory = "#{output_dir}/#{title}/general"
-    FileUtils::mkdir_p "#{rootdirectory}"
-    filename = title.to_s + "-general"
-    jsondirectory = filename + ".json"
-    htmldirectory = filename + ".html"
-    system("wget '#{url}' -O #{rootdirectory}/#{htmldirectory}")
-    File.open("#{rootdirectory}/#{jsondirectory}", 'wb')  do |f|
-      f.write(app.to_json)
+    begin
+      page = Nokogiri::HTML(open(url))
+      title = title.gsub(/\s+/, "")
+      app = App.new(title)
+      app.title = page.css('h1.entry-title').text.strip
+      app.creator = page.css('a.devlink').text.strip
+      app.description = page.css('div.app-description-wrap')[0].text.strip
+      app.domain = page.css('div#crumbs a')[1].text.strip
+      app.category = page.css('div#crumbs a')[2].text.strip
+      rootdirectory = "#{output_dir}/#{title}/general"
+      FileUtils::mkdir_p "#{rootdirectory}"
+      filename = title.to_s + "-general"
+      jsondirectory = filename + ".json"
+      htmldirectory = filename + ".html"
+      system("wget '#{url}' -O #{rootdirectory}/#{htmldirectory}")
+      File.open("#{rootdirectory}/#{jsondirectory}", 'wb')  do |f|
+        f.write(app.to_json)
+      end
+    rescue => e
+      puts e.message
+      puts e.backtrace
+      puts "LOCATION: #{url}"
+      return
     end
   end
 
