@@ -93,7 +93,7 @@ class Scraping
     version = Version.new(title)
     version.size = page.css('div.changelog-wrap div.download-wrap a div.download-size').text.strip
     version.update_date = page.css('div.changelog-wrap p.latest-updated-date').text.strip.gsub(/^\S+\s/,"")
-    version.version = /\d+(\.\d+)+/.match(page.css('div.app-contents-wrap h3.section-title')[0].text.strip)
+    version.version = /[^\s]+$/.match(page.css('div.app-contents-wrap h3.section-title')[0].text.strip)
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
     version.download_link = page.css('div.download-wrap a')[0]['href']
     rootdirectory = "#{output_dir}/#{title}/versions/#{version.version}"
@@ -110,6 +110,7 @@ class Scraping
     if package_name.nil?
       FileUtils.rm_rf "#{output_dir}/#{title}/versions/#{version.version}"
     else
+      puts "@@@@@@@@@@@@#{package_name}@@@@@@@@@@@@@@@@@@@@#{version_name}@@@@@#{version.version}@@@@@@@@@@@@@@@@"
       if !version_name.nil? && version.version.to_s != version_name.to_s
         FileUtils.mv "#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}"
       end
@@ -173,7 +174,7 @@ class Scraping
 
   def extract_older_version_features(section, apkname, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
     title = title.gsub(/\s+/, "")
-    versionNum = /\d+(\.\d+)+/.match(section.css('div.download-text').text.strip)
+    versionNum = /[^\s]+$/.match(section.css('div.download-text').text.strip)
     version = Version.new(versionNum)
     version.version = versionNum
     version.size = section.css('div.download-wrap a div.download-size').text.strip
