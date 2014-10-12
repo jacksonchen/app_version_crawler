@@ -110,7 +110,6 @@ class Scraping
     if package_name.nil?
       FileUtils.rm_rf "#{output_dir}/#{title}/versions/#{version.version}"
     else
-      puts "@@@@@@@@@@@@#{package_name}@@@@@@@@@@@@@@@@@@@@#{version_name}@@@@@#{version.version}@@@@@@@@@@@@@@@@"
       if !version_name.nil? && version.version.to_s != version_name.to_s
         FileUtils.mv "#{output_dir}/#{title}/versions/#{version.version}", "#{output_dir}/#{title}/versions/#{version_name}"
       end
@@ -240,7 +239,7 @@ class Scraping
     if output == ""
       return
     else
-    pattern = /package\: name='(?<PackageName>\S+)' versionCode='\d+' versionName='(?<VersionName>\S+)'/
+    pattern = /package\: name='(?<PackageName>\S+)' versionCode='\d+' versionName='(?<VersionName>.+)'/
     parts = output.match(pattern)
     return parts['PackageName'], parts['VersionName']
     end
