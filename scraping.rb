@@ -94,6 +94,7 @@ class Scraping
     version.size = page.css('div.changelog-wrap div.download-wrap a div.download-size').text.strip
     version.update_date = page.css('div.changelog-wrap p.latest-updated-date').text.strip.gsub(/^\S+\s/,"")
     version.version = /[^\s]+$/.match(page.css('div.app-contents-wrap h3.section-title')[0].text.strip)
+    version.version = version.version[0].gsub(/[\(\)\:?\/\\%\*|"'<>]/,"")
     version.what_is_new = page.css('div.changelog-wrap ul').text.strip
     version.download_link = page.css('div.download-wrap a')[0]['href']
     rootdirectory = "#{output_dir}/#{title}/versions/#{version.version}"
@@ -174,6 +175,7 @@ class Scraping
   def extract_older_version_features(section, apkname, title, first_package_letter, first_package_section, second_package_letter, second_package_section, last_package_section, aapt_dir, output_dir)
     title = title.gsub(/\s+/, "")
     versionNum = /[^\s]+$/.match(section.css('div.download-text').text.strip)
+    versionNum = versionNum[0].gsub(/[\(\)\:?\/\\%\*|"'<>]/,"")
     version = Version.new(versionNum)
     version.version = versionNum
     version.size = section.css('div.download-wrap a div.download-size').text.strip
