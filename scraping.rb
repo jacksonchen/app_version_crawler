@@ -39,7 +39,7 @@ class Scraping
         puts "===== Fetching #{element['href']} ====="
         searchApp =  Nokogiri::HTML(open(element['href']))
         url = element['href']
-        title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\d+$/,"").gsub(/\s+/,"").gsub(/&/,"").gsub(/[\(\)\:?\/\\%\*|"'\.<>]/,"")
+        title = searchApp.css('h1.entry-title').text.strip.gsub(/\./,"").gsub(/\s+/,"").gsub(/&/,"").gsub(/[\(\)\:?\/\\%\*|"'\.<>]/,"")
         if appTitle.include?(title) == false
           extract_gen_features(url, title, output_dir)
           if File.directory?("#{output_dir}/#{title}/general")
