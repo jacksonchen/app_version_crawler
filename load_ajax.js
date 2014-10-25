@@ -27,11 +27,11 @@ function waitFor(testFx, onReady, timeOutMillis) {
 			} else {
 				if (!condition) {
 					// If condition still not fulfilled (timeout but condition is 'false')
-					console.log("'waitFor()' timeout");
+					console.error("Error: timeout exceeded.");
 					phantom.exit(1);
 				} else {
 					// Condition fulfilled (timeout and/or condition is 'true')
-					console.log("'waitFor()' finished in " + (new Date().getTime() - start) + "ms.");
+					//console.log("'waitFor()' finished in " + (new Date().getTime() - start) + "ms.");
 					// onReady: Do what it's supposed to do once the condition is fulfilled
 					typeof(onReady) === "string" ? eval(onReady) : onReady();
 					clearInterval(interval); //< Stop this interval
@@ -45,10 +45,10 @@ var page = require('webpage').create(),
 	fs = require('fs'),
 	address, output, page;
 
-if (system.args.length != 3) {
-	console.log('Usage: phantomjs load_ajax.js URL output_filename page_number');
-	console.log('  Example: phantomjs load_ajax.js' +
-		' http://www.androiddrawer.com/search-results/?q=evernote evernote-results.html');
+if (system.args.length != 2) {
+	console.error('Usage: phantomjs load_ajax.js URL');
+	console.error('  Example: phantomjs load_ajax.js' +
+		' http://www.androiddrawer.com/search-results/?q=evernote');
 	phantom.exit(1);
 } else {
 	address = system.args[1];
@@ -60,7 +60,7 @@ if (system.args.length != 3) {
 
 		// Check for page load success
 		if (status !== "success") {
-			console.log("Unable to access network");
+			console.error("Unable to access network");
 		} else {
 			// Wait for 'gsc-resultsbox-visible' to be visible
 			waitFor(function() {
@@ -70,17 +70,26 @@ if (system.args.length != 3) {
 					//CHANGE THE LINE OF CODE ABOVE TO ACCESS PAGES
 				});
 			}, function() {
-  				console.log("The search results list should be visible now." +
-  					" Downloading the web page for you..");
   				try {
-  					fs.write(outputFile, page.content, 'w')
+					console.log(page.content)
   				} catch (e) {
-  					console.log("Error while writing to the file. " + e.message)
+  					console.error("Error while writing to the file. " + e.message)
   				}
-  				console.log("The web page has been downloaded at: " + outputFile)
   				phantom.exit();
 			});
 		}
 	});
+	// Ignore JavaScript execution error
+	page.onError = function(msg, trace) {
+	    var msgStack = ['ERROR: ' + msg];
+	    if (trace && trace.length) {
+	        msgStack.push('TRACE:');
+	        trace.forEach(function(t) {
+	            msgStack.push(' -> ' + t.file + ': ' + t.line + (t.function ? ' (in function "' + t.function + '")' : ''));
+	        });
+	    }
+	    // uncomment to log into the console 
+	    // console.error(msgStack.join('\n'));
+	};
 
 }
