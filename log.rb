@@ -29,7 +29,7 @@ class Log
     rescue ArgumentError => e
       abort(e.message)
     end
-    @logger ||= Logging.logger['appsrepo']
+    @logger ||= Logging.logger['AppVersionCrawler']
     @logger.level = :info
     @logger.add_appenders @log_file_name, 'stdout'
   end
