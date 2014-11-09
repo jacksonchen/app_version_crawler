@@ -40,7 +40,8 @@ class Scraping
         @@log.info("===== Fetching #{element['href']} =====")
         searchApp =  Nokogiri::HTML(open(element['href']))
         url = element['href']
-        if !url.nil? and !@seeds.include?(url)
+        #checks if url exists, if url is not already seeded, and if the page is a normal page (e.g not a help or blog page)
+        if !url.nil? and !@seeds.include?(url) and searchApp.at_css('h1.entry-title')
           # Extract general features and download HTML page
           app = extract_gen_features(url, output_dir)
           # Extract version specific information
