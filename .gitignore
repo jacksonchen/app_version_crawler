@@ -5,3 +5,4 @@ packages.csv
 *.log
 *.log.age
 appstmp.apk
+tmp.apk
