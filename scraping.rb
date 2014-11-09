@@ -17,7 +17,7 @@ class Scraping
   BASE_URL = 'http://androiddrawer.com'
   SEARCH_PATH = '/search-results'
   QUERY_STRING = '/?q='
-  
+
   def initialize()
     # Seed URLs to ensure that webpages are fetched only once
     @seeds= Array.new()
@@ -46,31 +46,39 @@ class Scraping
           # Extract version specific information
           (app, out_path) = extract_latest_version_features(searchApp, app, output_dir)
           # get older versions
-          parse_old_versions(searchApp, app, out_path)
+          if out_path.nil?
+            (app, out_path) = parse_old_versions(searchApp, app, out_path, output_dir)
+          else
+            parse_old_versions(searchApp, app, out_path, "")
+          end
           # Add URL to seeds
           @seeds << url
         end
       end
     end
   end
-  
-  def parse_old_versions(page, app, out_path)
+
+  def parse_old_versions(page, app, out_path, old_root_dir)
     versions = page.css('div.old-version-list h2.old-version-title')
     links = page.css('div.download-wrap a.download-btn')
     added_dates = page.css('div.old-version-content-wrap p.latest-updated-date')
     all_changes_list = page.css('div.old-version-content-wrap ul')
-    
+
     new_changes = []
     all_changes_list.each do |change|
       new_changes << change.text.strip
     end
-    apk_tmp_full_path = File.join(out_path, "tmp.apk")
+    if out_path.nil?
+      apk_tmp_full_path = "#{old_root_dir}tmp.apk"
+    else
+      apk_tmp_full_path = File.join(out_path, "tmp.apk")
+    end
     versions.zip(links, added_dates, new_changes).each do |version, link, added_date, change|
       @@log.info("version: " + version.text.strip)
       app.download_link = link['href']
       app.what_is_new = new_changes.join(',')
       app.update_date = added_date.text.strip.gsub(/^Added on /,"")
-      
+
       system("wget -q '#{app.download_link}' -O #{apk_tmp_full_path}")
       # Get version name and version code info from aapt tool
       version_info = get_version_info(apk_tmp_full_path)
@@ -80,22 +88,29 @@ class Scraping
       app.name = package_name
       app.version_code = version_code
       app.version_name = version_name
-      
-      version_directory = File.join(out_path, version_code)
-      FileUtils.mkdir_p version_directory
-      base_name = "#{package_name}-#{version_code}"
-      apk_full_path = File.join(version_directory, base_name + ".apk")
-      # move the apk file
-      system("mv #{apk_tmp_full_path} #{apk_full_path}")
 
-      json_file = base_name + '.json'
-      File.open("#{version_directory}/#{json_file}", 'w') do |f|
-        f.write(JSON.pretty_generate(app.to_json))
+      if !package_name.nil? || !version_name.nil? || !version_code.nil?
+        if out_path.nil?
+          all_versions_dir = rename_file(old_root_dir, package_name, version_code, apk_tmp_full_path, app)
+          return app, all_versions_dir
+        else
+          version_directory = File.join(out_path, version_code)
+          FileUtils.mkdir_p version_directory
+          base_name = "#{package_name}-#{version_code}"
+          apk_full_path = File.join(version_directory, base_name + ".apk")
+          # move the apk file
+          system("mv #{apk_tmp_full_path} #{apk_full_path}")
+
+          json_file = base_name + '.json'
+          File.open("#{version_directory}/#{json_file}", 'w') do |f|
+            f.write(JSON.pretty_generate(app.to_json))
+          end
+        end
       end
-    end    
+    end
   end
-  
-  
+
+
   # Extract general app information and download HTML page.
   def extract_gen_features(url, root_dir)
     begin
@@ -108,7 +123,7 @@ class Scraping
       app.price = 'Free'
       html_out = "tmp.html"
       # Download HTML page
-      system("wget -q '#{url}' -O #{root_dir}/#{html_out}")
+      system("wget -q '#{url}' -O #{html_out}")
       app
     rescue => e
       @@log.error(e.message)
@@ -116,29 +131,35 @@ class Scraping
       @@log.error("LOCATION: #{url}")
     end
   end
-  
+
   # Extract version specific information and download apk file
   def extract_latest_version_features(page, app, root_dir)
     app.size = page.css('div.changelog-wrap div.download-wrap a div.download-size').text.strip
     app.update_date = page.css('div.changelog-wrap p.latest-updated-date').text.strip.gsub(/^\S+\s/,"")
     app.what_is_new = page.css('div.changelog-wrap ul').text.strip
     app.download_link = page.css('div.download-wrap a')[0]['href']
-    
+
     apk_tmp_full_path = "#{root_dir}tmp.apk"
     system("wget -q '#{app.download_link}' -O #{apk_tmp_full_path}")
-    
+
     # Get version name and version code info from aapt tool
     version_info = get_version_info(apk_tmp_full_path)
     package_name = version_info[:package]
     version_code = version_info[:version_code]
     version_name = version_info[:version_name]
-    
     app.name = package_name
     app.version_code = version_code
     app.version_name = version_name
-    
+
+    if !package_name.nil? || !version_name.nil? || !version_code.nil?
+      all_versions_dir = rename_file(root_dir, package_name, version_code, apk_tmp_full_path, app)
+    end
+    return app, all_versions_dir
+  end
+
+  def rename_file(root_dir, package_name, version_code, apk_tmp_full_path, app)
     package_parts = package_name.split('.')
-    all_versions_dir = File.join(root_dir, package_parts[0][0], package_parts[0], package_parts[1][0],package_parts[1], package_name, 'versions')
+    all_versions_dir = File.join(root_dir, package_parts[0][0], package_parts[0], package_parts[1][0], package_parts[1], package_name, 'versions')
     base_name = "#{package_name}-#{version_code}"
     version_directory = File.join(all_versions_dir, version_code)
     FileUtils.mkdir_p version_directory
@@ -147,14 +168,14 @@ class Scraping
     system("mv #{apk_tmp_full_path} #{apk_full_path}")
     # move the html file
     html_file_path = File.join(all_versions_dir, base_name + ".html")
-    system("mv #{root_dir}tmp.html #{html_file_path}")
+    system("mv tmp.html #{html_file_path}")
     json_file = base_name + '.json'
     File.open("#{version_directory}/#{json_file}", 'w') do |f|
       f.write(JSON.pretty_generate(app.to_json))
     end
-    return app, all_versions_dir
+    return all_versions_dir
   end
-  
+
   # Get version name and version code using aapt from the apk file
   def get_version_info(apk_file)
     version_info = Hash.new
@@ -214,7 +235,7 @@ class Scraping
     end
     Log.log_file_name = log_file_name
     @@log = Log.instance
-    
+
     csv_text = File.read(argv[0])
     output_dir = argv[1]
     packagesArray = Array.new()
