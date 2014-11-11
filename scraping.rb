@@ -41,7 +41,7 @@ class Scraping
         @@log.info("===== Fetching #{element['href']} =====")
         begin
           searchApp = ""
-          Timeout.timeout(3) do
+          Timeout.timeout(240) do
             searchApp =  Nokogiri::HTML(open(element['href']))
           end
           url = element['href']
@@ -204,7 +204,7 @@ class Scraping
       @@log.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Keyword: #{keyword}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       begin
         html_doc = ""
-        Timeout.timeout(10) do
+        Timeout.timeout(240) do
           html_doc = download_drawer(keyword)
         end
         browse_query(keyword, html_doc, output_dir)
