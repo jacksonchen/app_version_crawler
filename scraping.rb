@@ -7,6 +7,7 @@ require 'nokogiri'
 require 'open-uri'
 require 'csv'
 require 'fileutils'
+require 'timeout'
 require_relative 'app'
 require_relative 'log'
 require_relative 'aapt_executor'
@@ -38,22 +39,29 @@ class Scraping
     linkArray.each do |element|
       if element['href'] != nil
         @@log.info("===== Fetching #{element['href']} =====")
-        searchApp =  Nokogiri::HTML(open(element['href']))
-        url = element['href']
-        #checks if url exists, if url is not already seeded, and if the page is a normal page (e.g not a help or blog page)
-        if !url.nil? and !@seeds.include?(url) and searchApp.at_css('h1.entry-title') and searchApp.at_css('div.app-description-wrap')
-          # Extract general features and download HTML page
-          app = extract_gen_features(url, output_dir)
-          # Extract version specific information
-          (app, out_path) = extract_latest_version_features(searchApp, app, output_dir)
-          # get older versions
-          if out_path.nil?
-            (app, out_path) = parse_old_versions(searchApp, app, out_path, output_dir)
-          else
-            parse_old_versions(searchApp, app, out_path, "")
+        begin
+          searchApp = ""
+          Timeout.timeout(3) do
+            searchApp =  Nokogiri::HTML(open(element['href']))
           end
-          # Add URL to seeds
-          @seeds << url
+          url = element['href']
+          #checks if url exists, if url is not already seeded, and if the page is a normal page (e.g not a help or blog page)
+          if !url.nil? and !@seeds.include?(url) and searchApp.at_css('h1.entry-title') and searchApp.at_css('div.app-description-wrap')
+            # Extract general features and download HTML page
+            app = extract_gen_features(url, output_dir)
+            # Extract version specific information
+            (app, out_path) = extract_latest_version_features(searchApp, app, output_dir)
+            # get older versions
+            if out_path.nil?
+              (app, out_path) = parse_old_versions(searchApp, app, out_path, output_dir)
+            else
+              parse_old_versions(searchApp, app, out_path, "")
+            end
+            # Add URL to seeds
+            @seeds << url
+          end
+        rescue Timeout::Error
+          @@log.error("TIMEOUT ERROR: The app page '#{element['href']}' will be skipped since its query is hung")
         end
       end
     end
@@ -90,7 +98,7 @@ class Scraping
       app.version_code = version_code
       app.version_name = version_name
 
-      if !package_name.nil? || !version_name.nil? || !version_code.nil?
+      if !package_name.nil? && !version_name.nil? && !version_code.nil?
         if out_path.nil?
           all_versions_dir = rename_file(old_root_dir, package_name, version_code, apk_tmp_full_path, app)
           return app, all_versions_dir
@@ -152,7 +160,7 @@ class Scraping
     app.version_code = version_code
     app.version_name = version_name
 
-    if !package_name.nil? || !version_name.nil? || !version_code.nil?
+    if !package_name.nil? && !version_name.nil? && !version_code.nil?
       all_versions_dir = rename_file(root_dir, package_name, version_code, apk_tmp_full_path, app)
     end
     return app, all_versions_dir
@@ -193,9 +201,16 @@ class Scraping
   def start_main(keywords, output_dir)
     beginning_time = Time.now
     for keyword in keywords
-      @@log.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#{keyword}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-      html_doc = download_drawer(keyword)
-      browse_query(keyword, html_doc, output_dir)
+      @@log.info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Keyword: #{keyword}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+      begin
+        html_doc = ""
+        Timeout.timeout(10) do
+          html_doc = download_drawer(keyword)
+        end
+        browse_query(keyword, html_doc, output_dir)
+      rescue Timeout::Error
+        @@log.error("TIMEOUT ERROR: The keyword '#{keyword}' will be skipped since its query is hung")
+      end
     end
     end_time = Time.now
     elapsed_seconds = end_time - beginning_time
