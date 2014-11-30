@@ -49,6 +49,9 @@ class Scraping
           if !url.nil? and !@seeds.include?(url) and searchApp.at_css('h1.entry-title') and searchApp.at_css('div.app-description-wrap')
             # Extract general features and download HTML page
             app = extract_gen_features(url, output_dir)
+            if app.nil?
+              continue
+            end
             # Extract version specific information
             (app, out_path) = extract_latest_version_features(searchApp, app, output_dir)
             # get older versions
