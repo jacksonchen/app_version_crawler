@@ -44,6 +44,9 @@ class Scraping
           Timeout.timeout(240) do
             searchApp =  Nokogiri::HTML(open(element['href']))
           end
+          if searchApp.nil?
+            continue
+          end
           url = element['href']
           #checks if url exists, if url is not already seeded, and if the page is a normal page (e.g not a help or blog page)
           if !url.nil? and !@seeds.include?(url) and searchApp.at_css('h1.entry-title') and searchApp.at_css('div.app-description-wrap')
